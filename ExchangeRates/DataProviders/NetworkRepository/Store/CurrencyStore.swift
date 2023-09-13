@@ -7,22 +7,16 @@
 
 import Foundation
 
-protocol CurrencyStoreProtocol {
-    func fetchSymbols() async throws -> CurrencySymbolsObject
+protocol CurrencyStoreProtocol: GenericStoreProtocol {
+    func fetchSymbols(completion: @escaping completion<CurrencySymbolObject?>)
 }
 
-class CurrencyStore: BaseStore, CurrencyStoreProtocol {
-    func fetchSymbols() async throws -> CurrencySymbolsObject {
-        guard let urlRequest = try CurrencyRouter.symbols.asUrlRequest() else {
-            throw error
+class CurrencyStore: GenericStoreRequest, CurrencyStoreProtocol {
+    func fetchSymbols(completion: @escaping completion<CurrencySymbolObject?>) {
+        guard let urlRequest = CurrencyRouter.symbols.asUrlRequest() else {
+            return completion(nil, error)
         }
         
-        let (data, response) = try await URLSession.shared.data(for: urlRequest)
-        
-        guard let symbols = try SymbolResult(data: data, response: response).symbols else {
-            throw error
-        }
-        
-        return symbols
+        request(urlRequest: urlRequest, completion: completion)
     }
 }

@@ -7,28 +7,44 @@
 
 import Foundation
 import SwiftUI
+import Combine
 
 extension BaseCurrencyFilterView {
-    @MainActor class ViewModel: ObservableObject, CurrencySymbolsDataProviderDelegate {
-        @Published var currencySymbols = [CurrencySymbolModel]()
+    @MainActor class ViewModel: ObservableObject {
+        enum ViewState {
+            case start
+            case loading
+            case success
+            case failure
+        }
         
-        private let dataProvider: CurrencySymbolsDataProvider
+        @Published var currencySymbols = [CurrencySymbolModel]()
+        @Published var searchResults = [CurrencySymbolModel]()
+        @Published var currentState: ViewState = .start
+        
+        private let dataProvider: CurrencySymbolsDataProvider?
+        private var cancelables = Set<AnyCancellable>()
         
         init(dataProvider: CurrencySymbolsDataProvider = CurrencySymbolsDataProvider()) {
             self.dataProvider = dataProvider
-            self.dataProvider.delegate = self
         }
         
         func doFetchCurrencySymbols() {
-            dataProvider.fetchSymbols()
-        }
-        
-        nonisolated func success(model: [CurrencySymbolModel]) {
-            DispatchQueue.main.async {
-                withAnimation {
-                    self.currencySymbols = model.sorted { $0.symbol < $1.symbol }
-                }
-            }
+            currentState = .loading
+            dataProvider?.fetchSymbols()
+                .sink(receiveCompletion: { completion in
+                    switch completion {
+                    case .finished:
+                        self.currentState = .success
+                    case .failure(_):
+                        self.currentState = .failure
+                    }
+                }, receiveValue: { currencySymbols in
+                    withAnimation {
+                        self.currencySymbols = currencySymbols.sorted { $0.symbol < $1.symbol }
+                        self.searchResults = self.currencySymbols
+                    }
+                }).store(in: &cancelables)
         }
     }
 }

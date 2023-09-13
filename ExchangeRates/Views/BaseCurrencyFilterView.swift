@@ -21,19 +21,8 @@ struct BaseCurrencyFilterView: View {
 
     var delegate: BaseCurrencyFilterViewDelegate?
 
-    var searchResults: [CurrencySymbolModel] {
-        if searchText.isEmpty {
-            return viewModel.currencySymbols
-        } else {
-            return viewModel.currencySymbols.filter {
-                $0.symbol.contains(searchText.uppercased()) ||
-                    $0.fullName.uppercased().contains(searchText.uppercased())
-            }
-        }
-    }
-
     private var listCurrenciesView: some View {
-        List(searchResults, id: \.symbol, selection: $selection) { item in
+        List(viewModel.searchResults, id: \.symbol, selection: $selection) { item in
             HStack {
                 Text(item.symbol)
                     .font(.system(size: 14, weight: .bold))
@@ -43,7 +32,17 @@ struct BaseCurrencyFilterView: View {
                     .font(.system(size: 14, weight: .semibold))
             }
         }
-        .searchable(text: $searchText)
+        .searchable(text: $searchText, prompt: "Buscar moeda base")
+        .onChange(of: searchText) { searchText in
+            if searchText.isEmpty {
+                viewModel.searchResults = viewModel.currencySymbols
+            } else {
+                viewModel.searchResults = viewModel.currencySymbols.filter {
+                    $0.symbol.contains(searchText.uppercased()) ||
+                    $0.fullName.uppercased().contains(searchText.uppercased())
+                }
+            }
+        }
         .navigationTitle("Filtrar Moedas")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -58,10 +57,42 @@ struct BaseCurrencyFilterView: View {
             }
         }
     }
+    
+    private var errorView: some View {
+        VStack(alignment: .center) {
+            Spacer()
+            
+            Image(systemName: "wifi.exclamationmark")
+                .resizable()
+                .frame(width: 60, height: 44)
+                .padding(.bottom, 4)
+            
+            Text("Ocorreu um erro na busca dos simbolos das moedas")
+                .font(.headline.bold())
+                .multilineTextAlignment(.center)
+            
+            Button {
+                viewModel.doFetchCurrencySymbols()
+            } label: {
+                Text("Tentar novamente")
+            }
+            .padding(.top, 4)
+            
+            Spacer()
+        }
+    }
 
     var body: some View {
         NavigationView {
-            listCurrenciesView
+            if case .loading = viewModel.currentState {
+                ProgressView()
+                    .scaleEffect(2.2, anchor: .center)
+            } else if case .success = viewModel.currentState {
+                listCurrenciesView
+            } else if case .failure = viewModel.currentState {
+                errorView
+            }
+            
         }
         .onAppear {
             viewModel.doFetchCurrencySymbols()

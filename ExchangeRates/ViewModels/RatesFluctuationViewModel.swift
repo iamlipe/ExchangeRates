@@ -7,43 +7,54 @@
 
 import Foundation
 import SwiftUI
+import Combine
 
 extension RatesFluctuationView {
-    @MainActor class ViewModel: ObservableObject, RatesFluctuationDataProviderDelegate {
+    @MainActor class ViewModel: ObservableObject {
+        enum ViewState {
+            case start
+            case loading
+            case success
+            case failure
+        }
+        
         @Published var ratesFluctuation = [RateFluctuationModel]()
+        @Published var searchResults = [RateFluctuationModel]()
         @Published var timeRange = TimeRangeEnum.today
         @Published var baseCurrency = "BRL"
         @Published var currencies = [String]()
+        @Published var currentState: ViewState = .start
         
         private let dataProvider: RatesFluctuationDataProvider?
+        private var cancelables = Set<AnyCancellable>()
         
         init(dataProvider: RatesFluctuationDataProvider = RatesFluctuationDataProvider()) {
             self.dataProvider = dataProvider
-            self.dataProvider?.delegate = self
         }
         
-        func doFetchTimeSeries(timeRange: TimeRangeEnum) {
+        func doFetchRatesFluctuation(timeRange: TimeRangeEnum) {
+            currentState = .loading
+            
             withAnimation {
                 self.timeRange = timeRange
             }
             
             let startDate = timeRange.date.formatter(to: "yyyy-MM-dd")
             let endDate = Date().formatter(to: "yyyy-MM-dd")
-
-            dataProvider?.fetchFlucutuation(by: baseCurrency,
-                                            from: currencies,
-                                            startDate: startDate,
-                                            endDate: endDate)
-        }
-        
-        nonisolated func success(model: [RateFluctuationModel]) {
-            DispatchQueue.main.async {
-                withAnimation {
-                    self.ratesFluctuation = model.sorted {
-                        $0.symbol < $1.symbol
+            dataProvider?.fetchFluctuation(by: baseCurrency, from: currencies, startDate: startDate, endDate: endDate)
+                .sink(receiveCompletion: { completion in
+                    switch completion {
+                    case .finished:
+                        self.currentState = .success
+                    case .failure(_):
+                        self.currentState = .failure
                     }
-                }
-            }
+                }, receiveValue: { ratesFluctuation in
+                    withAnimation {
+                        self.ratesFluctuation = ratesFluctuation.sorted { $0.symbol < $1.symbol }
+                        self.searchResults = self.ratesFluctuation
+                    }
+                }).store(in: &cancelables)
         }
     }
 }

@@ -12,7 +12,7 @@ struct RateFluctuationDetailView: View {
     @StateObject var viewModel = ViewModel()
     
     @State var baseCurrency: String
-    @State var rateFluctuation: RateFluctuationModel
+    @State var fromCurrency: String
     @State private var isPresentedBaseCurrencyFilter = false
     
     private var valuesView: some View {
@@ -178,9 +178,7 @@ struct RateFluctuationDetailView: View {
         .navigationTitle(viewModel.title)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            viewModel.startStateView(baseCurrency: baseCurrency,
-                                     rateFluctuation: rateFluctuation,
-                                     timeRage: .today)
+            viewModel.startStateView(baseCurrency: baseCurrency, fromCurrency: fromCurrency, timeRange: .today)
         }
     }
 }
@@ -194,9 +192,6 @@ extension RateFluctuationDetailView: BaseCurrencyFilterViewDelegate {
 struct RateFluctuationDetailView_Previews: PreviewProvider {
     static var previews: some View {
         RateFluctuationDetailView(baseCurrency: "BRL",
-                                  rateFluctuation: RateFluctuationModel(symbol: "USD",
-                                                               change: 0.0008,
-                                                               changePct: 0.4175,
-                                                               endRate: 0.18857))
+                                  fromCurrency: "USD")
     }
 }
